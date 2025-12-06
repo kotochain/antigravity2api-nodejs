@@ -102,7 +102,7 @@ app.get('/v1/models', async (req, res) => {
 
 
 app.post('/v1/chat/completions', async (req, res) => {
-  const { messages, model, stream = true, tools, ...params} = req.body;
+  const { messages, model, stream = false, tools, ...params} = req.body;
   try {
     if (!messages) {
       return res.status(400).json({ error: 'messages is required' });
@@ -121,7 +121,8 @@ app.post('/v1/chat/completions', async (req, res) => {
         // }
       }
       requestBody.requestType="image_gen";
-      requestBody.request.systemInstruction.parts[0].text += "现在你作为绘画模型聚焦于帮助用户生成图片";
+      //requestBody.request.systemInstruction.parts[0].text += "现在你作为绘画模型聚焦于帮助用户生成图片";
+      delete requestBody.request.systemInstruction;
       delete requestBody.request.tools;
       delete requestBody.request.toolConfig;
     }
