@@ -36,8 +36,8 @@ function getAdminCredentials() {
   // 生成随机凭据（只生成一次）
   if (!generatedCredentials) {
     generatedCredentials = {
-      username: username || `admin_${crypto.randomBytes(4).toString('hex')}`,
-      password: password || crypto.randomBytes(12).toString('base64').replace(/[+/=]/g, ''),
+      username: username || crypto.randomBytes(8).toString('hex'),
+      password: password || crypto.randomBytes(16).toString('base64').replace(/[+/=]/g, ''),
       jwtSecret: jwtSecret || crypto.randomBytes(32).toString('hex')
     };
     
@@ -61,14 +61,12 @@ function getAdminCredentials() {
   return generatedCredentials;
 }
 
-const { envPath, configJsonPath, examplePath } = getConfigPaths();
+const { envPath, configJsonPath } = getConfigPaths();
 
-// 确保 .env 存在（如果缺失则从 .env.example 复制一份）
+// 确保 .env 存在（如果缺失则创建空白文件，方便用户后续配置）
 if (!fs.existsSync(envPath)) {
-  if (fs.existsSync(examplePath)) {
-    fs.copyFileSync(examplePath, envPath);
-    log.info('✓ 已从 .env.example 创建 .env 文件');
-  }
+  fs.writeFileSync(envPath, '# 环境变量配置文件\n# 参考 .env.example 了解可用配置项\n', 'utf8');
+  log.info('✓ 已创建空白 .env 文件，请根据需要配置环境变量');
 }
 
 // 加载 config.json

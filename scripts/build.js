@@ -240,15 +240,12 @@ try {
     }
   }
   
-  // 复制配置文件模板
-  const configFiles = ['.env.example', 'config.json'];
-  for (const file of configFiles) {
-    const srcPath = path.join(rootDir, file);
-    const destPath = path.join(distDir, file);
-    if (fs.existsSync(srcPath)) {
-      fs.copyFileSync(srcPath, destPath);
-      console.log(`  ✓ Copied ${file}`);
-    }
+  // 复制配置文件模板（只复制 config.json）
+  const configSrcPath = path.join(rootDir, 'config.json');
+  const configDestPath = path.join(distDir, 'config.json');
+  if (fs.existsSync(configSrcPath)) {
+    fs.copyFileSync(configSrcPath, configDestPath);
+    console.log('  ✓ Copied config.json');
   }
   
   console.log('');
@@ -256,8 +253,8 @@ try {
   console.log('');
   console.log('📋 Usage:');
   console.log('  1. Copy the dist folder to your target machine');
-  console.log('  2. Rename .env.example to .env and configure it');
-  console.log('  3. Run the executable');
+  console.log('  2. Run the executable (will auto-generate random credentials if not configured)');
+  console.log('  3. Optionally create .env file to customize settings');
   console.log('');
   
 } catch (error) {
