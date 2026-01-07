@@ -103,7 +103,7 @@ class TokenManager {
     const salt = await this.store.getSalt();
     const tokenIds = expiredTokens.map(token => generateTokenId(token.refresh_token, salt));
     
-    log.info(`正在刷新token: ${tokenIds.join(', ')}`);
+    log.info(`正在批量刷新 ${tokenIds.length} 个token: ${tokenIds.join(', ')}`);
     const startTime = Date.now();
 
     const results = await Promise.allSettled(

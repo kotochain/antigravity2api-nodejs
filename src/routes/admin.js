@@ -296,7 +296,51 @@ router.post('/tokens/export', cookieAuthMiddleware, async (req, res) => {
   }
 });
 
-// 导入 Token（需要密码验证）
+// 智能查找字段值（不分大小写，包含匹配）
+function findFieldByKeyword(obj, keyword) {
+  if (!obj || typeof obj !== 'object') return undefined;
+  const lowerKeyword = keyword.toLowerCase();
+  for (const key of Object.keys(obj)) {
+    if (key.toLowerCase().includes(lowerKeyword)) {
+      return obj[key];
+    }
+  }
+  return undefined;
+}
+
+// 智能解析单个 Token 对象
+function smartParseToken(rawToken) {
+  if (!rawToken || typeof rawToken !== 'object') return null;
+  
+  // 必需字段：包含 refresh 的认为是 refresh_token，包含 project 的认为是 projectId
+  const refresh_token = findFieldByKeyword(rawToken, 'refresh');
+  const projectId = findFieldByKeyword(rawToken, 'project');
+  
+  // 必须同时包含这两个字段
+  if (!refresh_token || !projectId) return null;
+  
+  // 构建标准化的 token 对象
+  const token = { refresh_token, projectId };
+  
+  // 可选字段自动获取
+  const access_token = findFieldByKeyword(rawToken, 'access');
+  const email = findFieldByKeyword(rawToken, 'email') || findFieldByKeyword(rawToken, 'mail');
+  const expires_in = findFieldByKeyword(rawToken, 'expire');
+  const enable = findFieldByKeyword(rawToken, 'enable');
+  const timestamp = findFieldByKeyword(rawToken, 'time') || findFieldByKeyword(rawToken, 'stamp');
+  const hasQuota = findFieldByKeyword(rawToken, 'quota');
+  
+  if (access_token) token.access_token = access_token;
+  if (email) token.email = email;
+  if (expires_in !== undefined) token.expires_in = parseInt(expires_in) || 3599;
+  if (enable !== undefined) token.enable = enable === true || enable === 'true' || enable === 1;
+  if (timestamp) token.timestamp = typeof timestamp === 'number' ? timestamp : new Date(timestamp).getTime();
+  if (hasQuota !== undefined) token.hasQuota = hasQuota === true || hasQuota === 'true' || hasQuota === 1;
+  
+  return token;
+}
+
+// 导入 Token（需要密码验证，支持智能字段映射）
 router.post('/tokens/import', cookieAuthMiddleware, async (req, res) => {
   const { password, data, mode = 'merge' } = req.body;
   
@@ -314,22 +358,27 @@ router.post('/tokens/import', cookieAuthMiddleware, async (req, res) => {
     let skippedCount = 0;
     let updatedCount = 0;
     
+    // 智能解析所有 token
+    const parsedTokens = [];
+    for (const rawToken of importTokens) {
+      const parsed = smartParseToken(rawToken);
+      if (parsed) {
+        parsedTokens.push(parsed);
+      } else {
+        skippedCount++;
+      }
+    }
+    
     if (mode === 'replace') {
       // 替换模式：清空现有数据，导入新数据
-      const validTokens = importTokens.filter(t => t.access_token && t.refresh_token);
-      await tokenManager.store.writeAll(validTokens);
-      addedCount = validTokens.length;
+      await tokenManager.store.writeAll(parsedTokens);
+      addedCount = parsedTokens.length;
     } else {
       // 合并模式：根据 refresh_token 去重
       const existingTokens = await tokenManager.store.readAll();
       const existingRefreshTokens = new Set(existingTokens.map(t => t.refresh_token));
       
-      for (const token of importTokens) {
-        if (!token.access_token || !token.refresh_token) {
-          skippedCount++;
-          continue;
-        }
-        
+      for (const token of parsedTokens) {
         if (existingRefreshTokens.has(token.refresh_token)) {
           // 更新已存在的 token
           const index = existingTokens.findIndex(t => t.refresh_token === token.refresh_token);
